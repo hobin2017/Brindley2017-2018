@@ -46,7 +46,7 @@ class MainLayout(QWidget):
         self.mainlayout.rightlayout.firstlayout = QHBoxLayout()
         self.mainlayout.rightlayout.firstlayout.userPortrait = QLabel()
         self.mainlayout.rightlayout.firstlayout.img = QPixmap()
-        self.mainlayout.rightlayout.firstlayout.img.load('.\\DeafaultPortrait.jpg')
+        self.mainlayout.rightlayout.firstlayout.img.load('.\\Images\\DeafaultPortrait.jpg')
         self.mainlayout.rightlayout.firstlayout.img.setDevicePixelRatio(2)
         self.mainlayout.rightlayout.firstlayout.userPortrait.setPixmap(self.mainlayout.rightlayout.firstlayout.img)
         self.mainlayout.rightlayout.firstlayout.userName = QLabel()
