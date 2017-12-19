@@ -1,1 +1,4 @@
+Both tests are using QCamera class.
 
+test1 is about how to display multiple cameras;
+test2 is about how to capture a image;
