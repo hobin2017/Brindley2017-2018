@@ -31,9 +31,6 @@ class PaymentSystem(QMainWindow):
         self.mainWidget.mainlayout.leftlayout.secondlayout.displayProduct([product1, product2, product3])
         self.mainWidget.mainlayout.leftlayout.secondlayout.displayProduct([product1, product2, product3, product3])
 
-    def showEvent(self, event):
-        pass
-
 
 
 
