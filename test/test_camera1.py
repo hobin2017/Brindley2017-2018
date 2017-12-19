@@ -9,8 +9,6 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtMultimedia import *
 from PyQt5.QtMultimediaWidgets import *
 
-import time
-
 class Camera(QMainWindow):
 
     def __init__(self, parent=None):
