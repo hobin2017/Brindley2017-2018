@@ -40,7 +40,6 @@ class Camera(QMainWindow):
 
 
     def mousePressEvent(self, event):
-        self.camera1.error.connect(self.test1) # it seems useless.
         # The state of QCamera only could be QCamera.UnloadedState, LoadedState and ActiveState.
         # The success of starting can be detected by QCamera status (8 means success).
         self.camera1.start() # changing the state of QCamera to QCamera.ActiveState.
@@ -54,8 +53,6 @@ class Camera(QMainWindow):
         self.capture1.capture()
         self.camera1.unlock()
 
-    def test1(self):
-        print('There is an error')
 
 
 if __name__ == '__main__':
