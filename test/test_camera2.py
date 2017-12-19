@@ -31,7 +31,7 @@ class Camera(QMainWindow):
         self.camera1.setViewfinder(self.videoItem1) # The parameter could be QVideoWidget, QGraphicsVideoItem and QAbstractVideoSurface.
         # The capture mode only could be QCamera.CaptureViewfinder, CaptureStillImage and CaptureVideo.
         self.camera1.setCaptureMode(QCamera.CaptureStillImage)
-
+        # The use of the QCameraImageCapture class
         self.capture1 = QCameraImageCapture(self.camera1)
 
         self.view = QGraphicsView() # QGraphicsView is a subclass of QWidget class
