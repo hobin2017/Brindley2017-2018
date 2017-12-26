@@ -20,7 +20,7 @@ handler1.setFormatter(formatter1)
 logger1.addHandler(handler1) # This indicates that the info of logger1 will be shown in the screen;
 # filter1 = logging.Filter('HOBIN')
 # logger1.addFilter(filter1) # filtering the information by the name of logger and can be used for handler as well
-# -----------------------------------------------logging------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------
 
 req = request.Request('http://127.0.0.1:5000/test1/')
 with request.urlopen(req) as f:
@@ -42,7 +42,7 @@ logger1.debug(data2['employees'])
 logger1.debug('--------------------------------------------------------------------------------------------')
 logger1.debug(type(data2['employees'][0]))
 logger1.debug(data2['employees'][0])
-# -----------------------------------------------logging------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------
 
 
 
