@@ -33,7 +33,7 @@ class MainWindow(QWidget):
         hbox.addWidget(self.piclabel)
         self.setLayout(hbox)
 
-        self.playtimer = Timer()
+        self.playtimer = Thread()
         self.playtimer.updateTime.connect(self.PlayVideo)
 
     def PlayVideo(self):
@@ -58,10 +58,10 @@ class MainWindow(QWidget):
         self.playtimer.quit()
 
 
-class Timer(QThread):
+class Thread(QThread):
     updateTime = pyqtSignal()
     def __init__(self,parent=None):
-        super(Timer, self).__init__(parent)
+        super(Thread, self).__init__(parent)
         self.stoped = False
         # The purpose of a QMutex is to protect an object, data structure or section of code so that only one thread can access it at a time
         self.mutex = QMutex() # at this time, it is useless.
