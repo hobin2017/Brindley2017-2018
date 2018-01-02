@@ -51,7 +51,7 @@ class CameraWidget1(QGraphicsView):
 
 class CameraWidget2(QLabel):
     """
-
+    The QLabel is refreshed by its own QThread.
     """
     def __init__(self, parent=None):
         super(CameraWidget2, self).__init__(parent)
@@ -63,10 +63,7 @@ class CameraWidget2(QLabel):
     def refresh(self, img):
         self.setPixmap(QPixmap.fromImage(img)) # the type of img is QImage
 
-    def freeze(self):
-        self.thread1.status = False
 
-    def restart(self):
-        self.thread1.start()
+
 
 
