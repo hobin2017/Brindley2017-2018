@@ -60,9 +60,9 @@ class MyThread2(QThread):
                 element1 = cv2.getStructuringElement(0, (3, 3))
                 img3_3 = cv2.dilate(img3_2, kernel=element1)
                 full_nums = img3_3.size
-                nums_detect = img3_3.sum()
+                nums_detect = img3_3.sum()/255.0
                 rate_detect = nums_detect / full_nums
-                if rate_detect > 0.2:
+                if rate_detect > 0.1:
                     self.detected.emit()
                     time.sleep(1)
         except BaseException:
