@@ -11,7 +11,7 @@ import sys
 import time
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QStackedLayout
-# ----------
+# -----------------------------------------------------------------------------------------------
 from MainLayout import MainLayout
 from StandbyLayout import StandbyLayout
 from CameraThread import MyThread2
@@ -20,6 +20,7 @@ from ML_Model import Detection1
 
 
 class PaymentSystem(QMainWindow):
+    global app  # the QApplication
 
     def __init__(self):
         super().__init__()
@@ -35,7 +36,6 @@ class PaymentSystem(QMainWindow):
         self.showFullScreen() # no Min Button and no Max Button in the main layout
         self.main_widget.mainlayout.leftlayout.secondlayout.sendList.connect(self.main_widget.renewSum)
 
-        # self.ml_model = Detection1()  # the initialization of TensorFlow model;
 
         # for switching the standby layout and main layout;
         self.capture1 = cv2.VideoCapture(1)
@@ -45,12 +45,15 @@ class PaymentSystem(QMainWindow):
         self.thread2.detected.connect(self.work1)
         self.thread2.start()
 
-        # for test2
+        # for work3
         self.timer1 = QTimer(self)
-        self.timer1.timeout.connect(self.test2)
+        self.timer1.timeout.connect(self.work3)
 
-        # for test1
-        self.test1()
+
+        # ML Model
+        #  it's start() is used in work1();
+        self.thread3 = Detection1(camera_object=self.capture1, parent=self)
+        self.thread3.detected.connect(self.work2)
 
 
     def work1(self):
@@ -64,16 +67,41 @@ class PaymentSystem(QMainWindow):
         """
         self.thread2.quit()  # I guess, it does not release the camera.
         self.main_frame.stacked_layout.setCurrentWidget(self.main_widget)
-        self.timer1.start(5000)
+        self.timer1.start(60000)  # for switching back to the standby layout;
+        self.work4()
 
 
-    def work2(self, frame_camera):
+    def work2(self, result_detected):
         """
-        Aim: using subprocess to execute the work1 function of the Detection1 class;
-        :param frame_camera: the picture;
+        Aim: to display the result of the detection;
+        :param result_detected: a list;
         :return: a list of detected product;
         """
-        pass
+        print(result_detected)
+        product1 = ['tea康师傅冰红茶', '300ml', 5.5]
+        self.main_widget.mainlayout.leftlayout.secondlayout.displayProduct([product1, product1])
+
+
+    def work3(self):
+        """
+        when there is no action, returns to the standby layout;
+        """
+        self.timer1.stop()
+        self.main_frame.stacked_layout.setCurrentWidget(self.stand_by_widget)
+        time.sleep(1)
+        # If the thread does not stop yet(still staying in the its run) and you call its start(), this start will be ignored;
+        self.thread2.start()  # Ideally, this is not the first time to starting this thread! It is a re-start!
+
+
+    def work4(self):
+        """
+        The strategy for detecting the products
+        :return:
+        """
+        for i in range(10):
+            self.thread3.start()
+            while self.thread3.isRunning():
+                app.processEvents()
 
 
     def closeEvent(self, event):
@@ -85,6 +113,7 @@ class PaymentSystem(QMainWindow):
 
 
     def test1(self):
+        """It will be redundant since the detection model is introduced;"""
         product1 = ['tea康师傅冰红茶', '300ml', 5.5]
         product2 = ['tea', '400ml', 6]
         product3 = ['tea', '500ml', 7]
@@ -92,20 +121,9 @@ class PaymentSystem(QMainWindow):
         self.main_widget.mainlayout.leftlayout.secondlayout.displayProduct([product1, product2, product3, product3])
 
 
-    def test2(self):
-        """
-        when there is no action, returns to the standby layout
-        """
-        self.timer1.stop()
-        self.main_frame.stacked_layout.setCurrentWidget(self.stand_by_widget)
-        time.sleep(1)
-        # If the thread does not stop yet(still staying in the its run) and you call its start(), this start will be ignored;
-        self.thread2.start()  # Ideally, this is not the first time to starting this thread! It is a re-start!
-
-
-
 
 if __name__ == '__main__':
+    global app
     app = QApplication(sys.argv)
     mainwindow = PaymentSystem()
     # ----------using qtmordern ------------------------------
