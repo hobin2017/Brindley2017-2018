@@ -21,6 +21,10 @@ class MyThread3(QThread):
 
 
     def run(self):
+        """
+        Disadvantage: 5 queries (not 1 query)!
+        If using 1 query, be carefule that customer may buy same products (query result will decrease at this situation).
+        """
         print('SQL Thread get %s'% self.detected_result)
         results = []
         if len(self.detected_result)>0:
