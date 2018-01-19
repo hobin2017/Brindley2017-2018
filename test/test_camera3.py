@@ -64,7 +64,8 @@ class Thread(QThread):
         super(Thread, self).__init__(parent)
         self.stoped = False
         # The purpose of a QMutex is to protect an object, data structure or section of code so that only one thread can access it at a time
-        self.mutex = QMutex() # at this time, it is useless.
+        # at this time, it is useless. Using the QtConcurrent class instead which will manage them automatically;
+        self.mutex = QMutex() 
 
     def run(self):
         with QMutexLocker(self.mutex):
