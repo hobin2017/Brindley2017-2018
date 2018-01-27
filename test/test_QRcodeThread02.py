@@ -93,7 +93,7 @@ class Mythread5(QThread):
         h = int((img2_h - icon_h) / 2)
         # icon = icon.convert("RGBA")
         img2.paste(icon, (w, h), icon)
-        self.finished.emit(img2)
+        self.finished.emit(ImageQt(img2))
 
 
 class MainWindow(QMainWindow):
@@ -107,9 +107,7 @@ class MainWindow(QMainWindow):
         self.thread.start()
 
     def work1(self, img_qrcode):
-        imageq = ImageQt(img_qrcode)
-        qimage = QImage(imageq)
-        self.pixmap01.convertFromImage(qimage)
+        self.pixmap01.convertFromImage(img_qrcode)
         self.label1.setPixmap(self.pixmap01)
 
 
