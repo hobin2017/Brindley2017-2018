@@ -64,7 +64,7 @@ class Mythread5(QThread):
         # the first way to create the QR code
         img1 = qrcode.make(self.dict02['data']['order_link'])
         img1.save('paymentCode1.png')
-        # generating QR code
+        # the second way to create the QR code
         qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=8, border=4)
         qr.add_data(self.dict02['data']['order_link'])
         qr.make(fit=True)  # to avoid data overflow errors
