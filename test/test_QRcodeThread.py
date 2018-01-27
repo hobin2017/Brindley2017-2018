@@ -61,30 +61,32 @@ class Mythread5(QThread):
         resp01 = requests.post(self.url, data=self.dict01, timeout=1)
         self.dict02 = json.loads(resp01.text)
         print(self.dict02['data']['order_link'])
-        #  generating QR code
+        # the first way to create the QR code
+        img1 = qrcode.make(self.dict02['data']['order_link'])
+        img1.save('paymentCode1.png')
+        # generating QR code
         qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=8, border=4)
         qr.add_data(self.dict02['data']['order_link'])
         qr.make(fit=True)  # to avoid data overflow errors
-        img = qr.make_image()
-        img = img.convert("RGBA")
-        img.save('paymentCode1.png')  # saving the QR code without a image inside it
+        img2 = qr.make_image()
+        img2 = img2.convert("RGBA")
         # adding the image to the QR code
         icon = Image.open("./images/payment.png")
-        img_w, img_h = img.size
+        img2_w, img2_h = img2.size
         factor = 4
-        size_w = int(img_w / factor)
-        size_h = int(img_h / factor)
+        size_w = int(img2_w / factor)
+        size_h = int(img2_h / factor)
         icon_w, icon_h = icon.size
         if icon_w > size_w:
             icon_w = size_w
         if icon_h > size_h:
             icon_h = size_h
         icon = icon.resize((icon_w, icon_h), Image.ANTIALIAS)
-        w = int((img_w - icon_w) / 2)
-        h = int((img_h - icon_h) / 2)
+        w = int((img2_w - icon_w) / 2)
+        h = int((img2_h - icon_h) / 2)
         # icon = icon.convert("RGBA")
-        img.paste(icon, (w, h), icon)
-        img.save('paymentCode2.png')  # saving the QR code with a image inside it
+        img2.paste(icon, (w, h), icon)
+        img2.save('paymentCode2.png')  # saving the QR code with a image inside it
 
 
 if __name__ == '__main__':
