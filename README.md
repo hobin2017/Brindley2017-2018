@@ -1,3 +1,3 @@
 # PaymentSystem2017
-Compared with version, the changes are listed below:
+Compared with the last version, the changes are listed below:
 #1, ;
