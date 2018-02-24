@@ -5,3 +5,4 @@ Compared with the last version, the changes are listed below:
 #3, Introducing the socketClient thread which sends data to my server to indicate that the machine is alive, receives the data from my server to open door and receives the data from my server to confirm that the order is paid by QR code or gesture method;
 #4, Adding two QLabels to show the end of the transaction;
 #5, the audio file (*.wav) will be added after the successful pay for products;
+#6, if the account does not give the access to us for automatic pay, the payment system does not show another image to cover the camera QLabel;
