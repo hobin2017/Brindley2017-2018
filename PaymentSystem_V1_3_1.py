@@ -375,6 +375,7 @@ if __name__ == '__main__':
         mainwindow.thread00.quit()
         print(e)
         print('---------------------------Error happens, restart the app----------------------------------')
+        sys.exit()
 
 
 
