@@ -128,6 +128,7 @@ class PaymentSystem(QMainWindow):
         But you don't know which one is working.
         """
         self.main_frame.stacked_layout.setCurrentWidget(self.main_widget)
+        self.main_widget.mainlayout.rightlayout.secondlayout_main.setCurrentWidget(self.main_widget.mainlayout.rightlayout.secondlayout)
         self.timer1.start(120000)  # unit: second;
         self.thread3.start()
         self.thread5.start()
