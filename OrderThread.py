@@ -1,5 +1,5 @@
 """
-QR code: Quick response code
+Order thread
 author = hobin
 """
 import collections
