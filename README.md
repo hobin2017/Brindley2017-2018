@@ -2,6 +2,9 @@
 Compared with the last version, the changes are listed below:
 #1, Imgae-upload thread is added to upload three imgaes: user image, items image and thumbs-up image;
 #2, fixing one bug: the account thread is not guaranteed to restart when both face detection and eye detection fails at first time. The situation is that the account thread is very close to end and the 'success' signal is emitted (At this time, account thread is stopped by the main process(account thread still is running) and the user-tracking thread starts. If the user-tracking thread cannot detect face and eyes, it will result in the restart of the account thread. However, the account thread is still running and hence the restart does not work as we expect.). The solution is waiting in main process;
-#3, all print statements are backup in loggers;
-#4, configurations of every thread goes in one file;
-#5, the ability to open door is added;
+#3, all print statements are replaced by logging module;
+#4, configuration module is added;
+#5, the ml_item model will compare the current result and the last result, and then do different things;
+#6, the file path problem is sovled and it is independent to the operating system;
+#7, deleting the __del__ function of both ML model;
+#8 changing the time.sleep logic of the account thread to ensure that the account thread ends after successful detection;
