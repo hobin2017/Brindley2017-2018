@@ -89,7 +89,7 @@ class MyThread8(QThread):
         """It is like heart-beating."""
         try:
             print('WebSocket-Client thread sends:', self.msg)
-            self.socket.emit('WebSocket-Client thread ping server', self.msg)
+            self.socket.emit('ping server', self.msg)
         except Exception as e:
             print(e)
             print('--------------Error happens in the ping_timer function of WebSocket Thread-------------------------')
