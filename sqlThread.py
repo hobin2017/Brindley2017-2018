@@ -164,7 +164,7 @@ class MyThread3_2_1(QThread):
         self.mysql_config = {
             'user': db_user,
             'password': db_pass,
-            'post': int(db_port),
+            'port': int(db_port),
             'host': db_host,
             'database': db_database
         }
