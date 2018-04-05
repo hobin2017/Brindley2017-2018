@@ -5,3 +5,4 @@ Compared with the last version, the changes are listed below:
 #3， the verification of item weight is added after the SQL thread in work5 function. If the verification fails, one dialog shows until the verification successes;
 #4, my customized QDialog class is introduced in the ShoppingList.py to give a message to customer;
 #5, commenting the useless usage QThread.setPriority();
+#6, adding the self-checking is firstly introduced into Brindley;
