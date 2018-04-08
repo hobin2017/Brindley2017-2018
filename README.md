@@ -6,6 +6,6 @@ Compared with the last version, the changes are listed below:
 #4, my customized QDialog class is introduced in the ShoppingList.py to give a message to customer;
 #5, commenting the useless usage QThread.setPriority();
 #6, adding the self-checking is firstly introduced into Brindley;
-#7， finding one bug caused by the cooperation of the Weigher and the ML Model: the weigher detects zero and it refreshs the ShoppingList Layout (it does not refresh the last_result of the ML Model). What if customer place the same item into the weigher? Ans: the weigher sends signal to ML Model to detect items, and then the detected result is the same as the last result. Hence, the the ShoppingList still is empty!
+#7， finding one bug caused by the cooperation of the Weigher and the ML Model: the weigher detects zero and it refreshs the ShoppingList Layout (it does not refresh the last_result of the ML Model). What if customer place the same item into the weigher? Answer: the weigher sends signal to ML Model to detect items, and then the detected result is the same as the last result. Hence, the the ShoppingList still is empty! Solution: refreshing the value of last_result of the ML Model in work4b function. 
 
  
