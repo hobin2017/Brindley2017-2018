@@ -12,8 +12,13 @@ import time
 import os
 
 import gc
+
+import qrcode
+from PIL import Image
+from PIL.ImageQt import ImageQt
 from PyQt5.QtCore import QTimer, QThread, QIODevice, QObject, Qt
 from PyQt5.QtGui import QImage
+from PyQt5.QtMultimedia import QMediaPlayer
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QStackedLayout
 # -----------------------------------------------------------------------------------------------
 from qtMediaPlayer import MyMediaPlayer
@@ -23,22 +28,25 @@ from StandbyLayout import StandbyLayout
 from EndLayout import EndLayout
 from CameraLayout import CameraDialog
 from CameraThread import MyThread2_1
-# from ML_Model import Detection1_2_1, Detection2_3_2_klas
+from ML_Model import Detection1_2_1, Detection2_3_2_klas, Detection1_multi_model_1
 from ML_Model import Detection1_simulation, Detection2_simulation
-from sqlThread import MyThread3_2_1
+from sqlThread import MyThread3_2_3
 from AccountThread import MyThread4_0_1_3
-from QRcodeThread import MyThread5_3
+from QRcodeThread import MyThread5_3_1
 from UserTrackingThread import MyThread6_3_1
 from GesturePayThread import MyThread7_1
-from WebSocketClientThread import MyThread8_1
-from ImageUploadThread import MyThread9_1
+from WebSocketClientThread import MyThread8_1_klas
+from ImageUploadThread import MyThread9_1_1
 from Weigher import Weigher1_1, Weigher2_1, Weigher3_1
 from ConfiguringModule import MyConfig1
 from LoggingModule import MyLogging1
-from StatisticsMethod import verifyWeight2
+from StatisticsMethod import verifyWeight2_2
 from Selfcheck import necessaryCheck_linux
 from ReminderLayout import ReminderWeight02
-from UserGuide import UserGuide03linux01
+from UserGuide import UserGuide03_1linux01
+from SerialPortConsole import SerialPortConsole
+from ItemQualityThread import MyThread10
+from SkuSysn import SkuSysnServer
 
 class PaymentSystem_klas(QObject):
 
@@ -49,7 +57,7 @@ class PaymentSystem_klas(QObject):
 
         # user guide
         if self.myconfig.data['operating_mode']['need_guide'] == '1':
-            a = UserGuide03linux01(cfg_path='Klas2.cfg')
+            a = UserGuide03_1linux01(cfg_path='Klas2.cfg')
             reply = a.exec()
             if reply != 0:
                 sys.exit('Error happens in user guide, please start again')
@@ -69,12 +77,16 @@ class PaymentSystem_klas(QObject):
         self.image_path = os.path.join(self.project_path, 'Images')
         if not os.path.exists(self.image_path):
             os.makedirs(self.image_path)
+        icon_path = os.path.join(self.image_path, 'payment.png')
         self.image_pay_success = os.path.join(self.image_path, 'pay_success.png')
         self.image_pay_error = os.path.join(self.image_path, 'pay_error.png')
         # the expected outcome is like './working_images';
         self.working_images_path = os.path.join(self.project_path, 'working_images')
         if not os.path.exists(self.working_images_path):
             os.makedirs(self.working_images_path)
+        self.working_images_original_path = os.path.join(self.project_path, 'working_images_original')
+        if not os.path.exists(self.working_images_original_path):
+            os.makedirs(self.working_images_original_path)
 
 
 
@@ -87,9 +99,24 @@ class PaymentSystem_klas(QObject):
         self.media_player = MyMediaPlayer(self)
 
         # item camera
-        self.capture1 = cv2.VideoCapture(int(self.myconfig.data['cam_item']['cam_num']))
+        if self.myconfig.data['operating_mode']['cam_path_used'] == '1':
+            self.capture1 = cv2.VideoCapture(self.myconfig.data['cam_item']['cam_path'])
+        else:
+            self.capture1 = cv2.VideoCapture(int(self.myconfig.data['cam_item']['cam_num']))
         self.capture1.set(3, int(self.myconfig.data['cam_item']['width']))  # 3 indicates the width;
         self.capture1.set(4, int(self.myconfig.data['cam_item']['height']))  # 4 indicates the height;
+
+        # item camera 2
+        if self.myconfig.data['cam_item2']['is_used'] == '1':
+            if self.myconfig.data['operating_mode']['cam_path_used'] == '1':
+                self.capture3 = cv2.VideoCapture(self.myconfig.data['cam_item2']['cam_path'])
+            else:
+                self.capture3 = cv2.VideoCapture(int(self.myconfig.data['cam_item2']['cam_num']))
+            self.capture3.set(3, int(self.myconfig.data['cam_item2']['width']))  # 3 indicates the width;
+            self.capture3.set(4, int(self.myconfig.data['cam_item2']['height']))  # 4 indicates the height;
+        else:
+            if self.myconfig.data['ml_item']['multi_model_item'] == '1':
+                sys.exit('Configuration problem: the camera used for the multi-camera ML Model is missing.')
 
         # for switching the standby layout and main layout;
         # the weigher1 and weigher2 become weigher3;
@@ -104,18 +131,23 @@ class PaymentSystem_klas(QObject):
         self.timer1.setSingleShot(True)
         self.timer1.timeout.connect(self.shopping_timer_work3_klas)
 
+        # timer for displaying the welcome video
+        self.timer2 = QTimer(self)
+        self.timer2.setSingleShot(True)
+        self.timer2.timeout.connect(self.weigher1_work1_klas)
+
 
         # weigher 2
         self.record_weight = 0.0
         self.weigher = Weigher3_1(**self.myconfig.data['weigher'])
-        self.weigher.detect_plus.connect(self.weigher1_work1_klas)
+        self.weigher.detect_plus.connect(self.weigher1_work20_klas)
         self.weigher.empty.connect(self.weigher2_work4b_klas)
         self.weigher.detect_changed.connect(self.weigher2_work4c_klas)
         self.weigher.to_standby.connect(self.weigher_work19_klas)
 
         # thread4 is about the SQL statement
         self.error_try_times_sql = 0
-        self.thread4 = MyThread3_2_1(parent=self, **self.myconfig.data['db'])
+        self.thread4 = MyThread3_2_3(parent=self, **self.myconfig.data['db'])
         self.thread4.finished.connect(self.sql_work5_klas)
         self.thread4.error_connection.connect(self.sql_error05)
         self.thread4.error_algorithm.connect(self.sql_error06)
@@ -133,13 +165,16 @@ class PaymentSystem_klas(QObject):
         self.thread5.timeout_http.connect(self.account_error01)
         self.thread5.connection_error.connect(self.account_error01)
         self.thread5.error.connect(self.account_error01)
-        self.thread5.failed_detection_web.connect(self.account_work7_klas)
+        self.thread5.failed_detection_web_klas.connect(self.account_work7_klas)
         self.thread5.failed_detection_local.connect(self.account_work17_klas)
         self.thread5.failed_detection_multiple.connect(self.account_work18_klas)
 
         # thread6 is about the QR code thread
-        self.thread6 = MyThread5_3(parent=self, **self.myconfig.data['order'])
-        self.thread6.finished.connect(self.order_work8_klas)
+        self.icon = Image.open(icon_path)
+        self.icon_w, self.icon_h = self.icon.size
+        self.order_link = None
+        self.thread6 = MyThread5_3_1(parent=self, **self.myconfig.data['order'])
+        self.thread6.finished.connect(self.order_work8_klas02)
         self.thread6.timeout_network.connect(self.order_error04)
         self.thread6.error.connect(self.order_error07)
 
@@ -150,13 +185,17 @@ class PaymentSystem_klas(QObject):
         self.thread8.timeout_http.connect(self.gesture_pay_error02)
         self.thread8.connection_error.connect(self.gesture_pay_error02)
         self.thread8.error.connect(self.gesture_pay_error02)
-        self.thread8.order_success.connect(self.gesture_pay_work21)
+        self.thread8.network_error.connect(self.gesture_pay_error08)
+        # self.thread8.order_success.connect(self.gesture_pay_work21)
 
         # thread9 is about the websocket thread
-        self.thread9 = MyThread8_1(**self.myconfig.data['websocket'])
-        self.thread9.payclear_success.connect(self.websocket_work11)
+        self.transaction_not_end_status = True
+        self.pay_clear_by_gesture = True  # just used for upload image
+        self.thread9 = MyThread8_1_klas(**self.myconfig.data['websocket'])
+        self.thread9.payclear_success.connect(self.websocket_work11_klas)
         self.thread9.payclear_failure.connect(self.websocket_work12)
         self.thread9.opendoor.connect(self.websocket_work13)
+        self.thread9.payclear_success_code.connect(self.websocket_work25)
         self.thread9.start()
         self.timer9 = QTimer()
         self.timer9.timeout.connect(self.thread9.ping_timer)
@@ -170,13 +209,29 @@ class PaymentSystem_klas(QObject):
         self.user_img = None
         self.user_time = None
         self.error_try_times_image_upload = 0
-        self.thread10 = MyThread9_1(**self.myconfig.data['image_upload'])
+        self.success_order_number = None
+        self.thread10 = MyThread9_1_1(**self.myconfig.data['image_upload'])
         self.thread10.error.connect(self.image_upload_error03)
 
+        # thread11 is about the item  quality thread
+        self.error_try_times_item_quality = 0
+        self.thread11 = MyThread10(**self.myconfig.data['item_quality'])
+        self.thread11.network_error.connect(self.item_quality_error09)
+
         # ML Model for item detection
-        self.thread0_1 = Detection1_simulation(camera_object=self.capture1, parent=self, **self.myconfig.data['ml_item'])
-        self.thread0_1.detected.connect(self.ml_item_work2)
-        self.thread0_1.upload_img.connect(self.ml_item_work15b)
+        if self.myconfig.data['simulation_item']['is_used'] == '1':
+            self.thread0_1 = Detection1_simulation(camera_object=self.capture1, **self.myconfig.data['simulation_item'])
+            self.thread0_1.detected.connect(self.ml_item_work2)
+            self.thread0_1.upload_img.connect(self.ml_item_work15b)
+        elif self.myconfig.data['ml_item']['multi_model_item'] == '1':
+            self.thread0_1 = Detection1_multi_model_1(camera_object=self.capture1, camera_object_2= self.capture3,
+                                                     model2_used=True, parent=self, **self.myconfig.data['ml_item'])
+            self.thread0_1.detected.connect(self.ml_item_work2)
+            self.thread0_1.upload_img.connect(self.ml_item_work15b)
+        else:
+            self.thread0_1 = Detection1_2_1(camera_object=self.capture1, parent=self, **self.myconfig.data['ml_item'])
+            self.thread0_1.detected.connect(self.ml_item_work2)
+            self.thread0_1.upload_img.connect(self.ml_item_work15b)
 
         # ML Model for hand detection
         self.new_user_flag = True
@@ -185,21 +240,43 @@ class PaymentSystem_klas(QObject):
         self.order_number = 'invalid'
         self.gesture_frame_location = {'x':0,'y':0,'length':0}
         self.gesture_frame_frozen_status = False
-        self.thread0_0 = Detection2_simulation(parent=self, **self.myconfig.data['ml_hand'])
-        # self.thread0_0.setPriority(QThread.HighPriority)
-        # self.thread0_0.detected.connect(self.ml_gesture_work10_klas01)
-        self.thread0_0.detected_gesture_info.connect(self.ml_gesture_work10_klas02)
-        self.thread0_0.upload_image.connect(self.ml_gesture_work15a)
+        if self.myconfig.data['simulation_hand']['is_used'] == '1':
+            self.thread0_0 = Detection2_simulation(parent=self, **self.myconfig.data['simulation_hand'])
+            self.thread0_0.detected_gesture_info.connect(self.ml_gesture_work10_klas02)
+            self.thread0_0.upload_image.connect(self.ml_gesture_work15a)
+        else:
+            self.thread0_0 = Detection2_3_2_klas(parent=self, **self.myconfig.data['ml_hand'])
+            # self.thread0_0.setPriority(QThread.HighPriority)
+            # self.thread0_0.detected.connect(self.ml_gesture_work10_klas01)
+            self.thread0_0.detected_gesture_info.connect(self.ml_gesture_work10_klas02)
+            self.thread0_0.upload_image.connect(self.ml_gesture_work15a)
+
+        # to refresh the database
+        sysService = SkuSysnServer(dbHost= self.myconfig.data['db']['db_host'],
+                                   user= self.myconfig.data['db']['db_user'],
+                                   password= self.myconfig.data['db']['db_pass'],
+                                   dbname= self.myconfig.data['db']['db_database'],
+                                   store_id= self.myconfig.data['websocket']['storeid'],
+                                   screen_id= self.myconfig.data['websocket']['screenid']
+                                   )
 
         # layout management
-        self.main_window = MainWindow(cameraId=int(self.myconfig.data['cam_user']['cam_num']),
+        self.main_window_error_status = False
+        if self.myconfig.data['operating_mode']['cam_path_used'] == '1':
+            cam_user = self.myconfig.data['cam_user']['cam_path']
+        else:
+            cam_user = int(self.myconfig.data['cam_user']['cam_num'])
+        self.main_window = MainWindow(cameraId= cam_user,
                                       cameraW=int(self.myconfig.data['cam_user']['width']),
                                       cameraH=int(self.myconfig.data['cam_user']['height']),
-                                      dbHost= self.myconfig.data['db']['db_host'],
-                                      user= self.myconfig.data['db']['db_user'],
-                                      password= self.myconfig.data['db']['db_pass'],
-                                      dbname= self.myconfig.data['db']['db_database']
+                                      sysService= sysService
                                       )
+
+        # door controller
+        self.door_controller = SerialPortConsole(serialinfo=self.myconfig.data['door_controller']['port_name'])
+        self.door_controller.outOpenDooSuccessByUser.connect(self.door_controller_work22)
+        self.door_controller.outOpenDooSuccess.connect(self.door_controller_work23)
+        self.door_controller.degaussSuccess.connect(self.door_controller_work24)
 
         #
         del self.image_pay_success
@@ -222,10 +299,14 @@ class PaymentSystem_klas(QObject):
         But you don't know which one is working.
         """
         self.mylogging.logger.info('weigher1_work1_klas begins')
+        if self.gesture_frame_frozen_status:
+            # adding this since the account thread result might be no well matched user and you freeze the frame.
+            self.main_window.stopHandGif()  # the main layout is restored manually
+            self.gesture_frame_frozen_status = False
         self.main_window.toSettlement()
         self.mylogging.logger.info(
             '--------------------------------Next transaction begins!---------------------------------********')
-        self.timer1.start(60*60*1000) # unit: millisecond, 24 hrs = 24*60*60*1000, 3 mins = 180000
+        self.timer1.start(180000) # unit: millisecond, 24 hrs = 24*60*60*1000, 3 mins = 180000
         # If self.weigher.record_value = 0.0 is omitted, the ml item model actually does not starts when the standby layout is switched to the main layout;
         self.weigher.record_value = 0.0  
         self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
@@ -249,11 +330,13 @@ class PaymentSystem_klas(QObject):
         It is executed by a QTimer;
         """
         self.mylogging.logger.info('shopping_timer_work3_klas begins')
-        if self.myconfig.data['operating_mode']['isdebug'] == '1':
+        if self.myconfig.data['operating_mode']['weight_error'] == '1':
             self.reminder_weight_wrong.setHidden(True)
-        else:
+            self.reminder_weight_wrong_status = False
+        if self.myconfig.data['operating_mode']['normal_error'] == '1':
             self.main_window.hideErrorInfo()
-        self.main_window.hideErrorInfo()
+            self.main_window_error_status = False
+
         self.main_window.toWelcome()
         self.mylogging.logger.info('shopping_timer_work3_klas: Klas is back to the standby layout.')
         self.thread0_0.status = False
@@ -261,8 +344,14 @@ class PaymentSystem_klas(QObject):
         try:
             self.weigher.serial.readyRead.disconnect()
         except TypeError:
-            self.mylogging.logger.error('There is no signal connection for QSerialPort.readyRead when you call disconnect() in shopping_timer_work3_klas.',exc_info=True)
+            pass
         # self.weigher.record_value = 0.0  # You don't need to clear the record since the costumer does not take items away imediatly;
+        self.transaction_not_end_status = True
+        self.pay_clear_by_gesture = True
+        self.success_order_number = None
+        self.order_link = None
+        self.user_name = None
+        self.user_portrait = QImage()
         self.thread0_0.frame = None
         self.thread5.frame = None
         self.user_id = 'invalid'
@@ -271,6 +360,7 @@ class PaymentSystem_klas(QObject):
         self.new_user_flag = True
         self.mylogging.logger.info('shopping_timer_work3_klas: ends to clear the order and user information')
         self.thread0_1.last_result = []  # If you do not refresh it, the last detected result comes from the last transaction.
+        self.failed_detection_local_counter = 0
         self.error_try_times_account = 0
         self.error_try_times_gesture_pay = 0
         self.error_try_times_image_upload = 0
@@ -280,6 +370,7 @@ class PaymentSystem_klas(QObject):
         self.thread0_0.status = False
         self.mylogging.logger.info('shopping_timer_work3_klas ends')
         self.mylogging.logger.info('--------------------------------Clear, Ready for next transaction---------------------------------********')
+
         self.weigher.serial.readyRead.connect(self.weigher.acceptData_standby)
 
     def weigher2_work4b_klas(self):
@@ -294,14 +385,15 @@ class PaymentSystem_klas(QObject):
         self.order_number = 'invalid'
         self.new_order_flag = True
         self.thread0_1.last_result = []  # the communication between weigher and the ML Model for the ShoppingList Layout.
-        # self.reminder_weight_wrong.label1.setText('The current weight is 0.')
-        # if not self.reminder_weight_wrong_status:
-        #     if self.myconfig.data['operating_mode']['isdebug'] == '1':
-        #         self.reminder_weight_wrong.setVisible(True)
-        #     self.reminder_weight_wrong_status = True
-        if self.reminder_weight_wrong_status:
+        self.reminder_weight_wrong.label1.setText('The current weight is 0.')
+        if not self.reminder_weight_wrong_status and self.myconfig.data['operating_mode']['weight_error'] == '1':
+            self.reminder_weight_wrong.setVisible(True)
+            self.reminder_weight_wrong_status = True
+        if self.main_window_error_status and self.myconfig.data['operating_mode']['normal_error'] == '1':
             self.main_window.hideErrorInfo()
-            self.reminder_weight_wrong_status = False
+            self.main_window_error_status = False
+        if self.timer1.isActive() and self.transaction_not_end_status:
+            self.timer1.start(5000)
         self.mylogging.logger.info('weigher2_work4b_klas ends')
 
     def weigher2_work4c_klas(self, record_weight):
@@ -309,9 +401,11 @@ class PaymentSystem_klas(QObject):
         This function is initialized by the 'detect_changed' signal of self.weigher2;
         """
         self.new_order_flag = True
-        if self.reminder_weight_wrong_status:
+        if self.main_window_error_status and self.myconfig.data['operating_mode']['normal_error'] == '1':
             self.main_window.hideErrorInfo()
-            self.reminder_weight_wrong_status = False
+            self.main_window_error_status = False
+        if self.timer1.isActive() and self.transaction_not_end_status:
+            self.timer1.start(180000)
         # self.media_player.player.setMedia(self.media_player.file06)
         # self.media_player.player.play()
         self.mylogging.logger.info(
@@ -331,14 +425,15 @@ class PaymentSystem_klas(QObject):
         self.main_window.cleanCommodity()
         self.main_window.setSumPrice('0')
         # with verification
-        weight_range = verifyWeight2(result_sql)
+        weight_range = verifyWeight2_2(result_sql)
         if weight_range[0] <= self.record_weight <= weight_range[1]:
             if self.reminder_weight_wrong_status:
-                if self.myconfig.data['operating_mode']['isdebug'] == '1':
+                if self.myconfig.data['operating_mode']['weight_error'] == '1':
                     self.reminder_weight_wrong.setHidden(True)
-                else:
+                    self.reminder_weight_wrong_status = False
+                if self.myconfig.data['operating_mode']['normal_error'] == '1':
                     self.main_window.hideErrorInfo()
-                self.reminder_weight_wrong_status = False
+                    self.main_window_error_status = False
             # Be careful the result_sql might be empty.
             if len(result_sql) == 0:
                 self.mylogging.logger.info('sql_work5_klas detects no item.')
@@ -347,8 +442,9 @@ class PaymentSystem_klas(QObject):
                 self.mylogging.logger.info('sql_work5_klas detects more than 4 items')
                 # self.media_player.player.setMedia(self.media_player.file09)
                 # self.media_player.player.play()
-                self.main_window.showErrorInfo(2)  # You need to hide it by yourself
-                self.reminder_weight_wrong_status = True
+                if self.myconfig.data['operating_mode']['normal_error'] == '1':
+                    self.main_window.showErrorInfo(2)  # You need to hide it by yourself
+                    self.main_window_error_status = True
                 self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
             else:
                 self.mylogging.logger.info('sql_work5_klas starts to add items')
@@ -366,27 +462,32 @@ class PaymentSystem_klas(QObject):
             self.thread0_1.last_result = []
             if self.order_number != 'invalid':
                 self.order_number = 'invalid'
-            self.media_player.player.setMedia(self.media_player.file10)
-            self.media_player.player.play()
+            media_status = self.media_player.player.mediaStatus()
+            if media_status == QMediaPlayer.EndOfMedia or media_status == QMediaPlayer.NoMedia:
+                self.media_player.player.setMedia(self.media_player.file10)
+                self.media_player.player.play()
             # reminding the customer to place those item again
             self.reminder_weight_wrong.label1.setText('The record value is %s and it is not in range (%.2f,%.2f)'
                                                       % (self.record_weight, weight_range[0],weight_range[1]))
             if not self.reminder_weight_wrong_status:
-                if self.myconfig.data['operating_mode']['isdebug'] == '1':
+                if self.myconfig.data['operating_mode']['weight_error'] == '1':
                     self.reminder_weight_wrong.setVisible(True)
-                else:
+                    self.reminder_weight_wrong_status = True
+                if self.myconfig.data['operating_mode']['normal_error'] == '1':
                     self.main_window.showErrorInfo(0)
-                self.reminder_weight_wrong_status = True
+                    self.main_window_error_status = True
             # Be careful the result_sql might be empty.
             if len(result_sql) == 0:
                 self.mylogging.logger.info('sql_work5_klas detects no item.')
-                self.main_window.showErrorInfo(0)
-                self.reminder_weight_wrong_status = True
+                if self.myconfig.data['operating_mode']['normal_error'] == '1':
+                    self.main_window.showErrorInfo(0)
+                    self.main_window_error_status = True
                 self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
             elif len(result_sql) >4:
                 self.mylogging.logger.info('sql_work5_klas detects more than 4 items')
-                self.main_window.showErrorInfo(2)  # You need to hide it by yourself
-                self.reminder_weight_wrong_status = True
+                if self.myconfig.data['operating_mode']['normal_error'] == '1':
+                    self.main_window.showErrorInfo(2)  # You need to hide it by yourself
+                    self.main_window_error_status = True
                 self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
             else:
                 self.mylogging.logger.info('sql_work5_klas starts to add items')
@@ -395,8 +496,9 @@ class PaymentSystem_klas(QObject):
                     self.main_window.addCommodity(picid=index + 1, name=item[0], image=str(item[3]), price=item[2])
                     sum = sum + float(item[2])
                 self.main_window.setSumPrice('%.2f' % sum)
-                self.main_window.showErrorInfo(0)
-                self.reminder_weight_wrong_status = True
+                if self.myconfig.data['operating_mode']['normal_error'] == '1':
+                    self.main_window.showErrorInfo(0)
+                    self.main_window_error_status = True
                 self.mylogging.logger.info('sql_work5_klas ends to add items')
             self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
 
@@ -429,6 +531,9 @@ class PaymentSystem_klas(QObject):
                     # although the account thread detects only one user but now something goes wrong.
                     self.main_window.stopHandGif()
                     self.gesture_frame_frozen_status = False
+                self.new_order_flag = True
+                self.media_player.player.setMedia(self.media_player.file14)
+                self.media_player.player.play()
                 self.thread0_0.order_number = 'invalid'
                 self.thread0_0.start()
             else:
@@ -444,33 +549,59 @@ class PaymentSystem_klas(QObject):
                         # although the account thread detects only one user but now something goes wrong.
                         self.main_window.stopHandGif()
                         self.gesture_frame_frozen_status = False
+                    self.new_order_flag = True
+                    self.media_player.player.setMedia(self.media_player.file14)
+                    self.media_player.player.play()
                     self.thread0_0.order_number = 'invalid'
                     self.thread0_0.start()
         else:
             self.main_window.toPayingView(img2.mirrored(horizontal=True, vertical=False))
-            self.media_player.player.setMedia(self.media_player.file08)
-            self.media_player.player.play()
-            self.timer1.start(30*1000)
+            # self.media_player.player.setMedia(self.media_player.file08)
+            # self.media_player.player.play()
+            # self.timer1.start(30 * 1000)
             try:
                 self.weigher.serial.readyRead.disconnect()
             except BaseException:
                 pass
             self.weigher.serial.readyRead.connect(self.weigher.acceptData_back_to_standby)
-            try:
+            if self.order_link:
+                self.main_window.toRegisterView(image=self.user_portrait, qrimage=self.make_qrcode(self.order_link))
+            else:
                 self.main_window.toRegisterView()
-            except BaseException:
-                self.mylogging.logger.error('Error happens in account_work6_klas when using toRegisterView() function.', exc_info = True)
-
             self.mylogging.logger.info('account_work6_klas (end) : the user can not show gesture.')
 
-    def account_work7_klas(self):
-        # self.mylogging.logger.info('account_work7_klas begins')
-        self.thread0_0.start()
-        if self.gesture_frame_frozen_status:
-            # adding this since the account thread result might be no well matched user and you freeze the frame.
-            self.main_window.stopHandGif()
-            self.gesture_frame_frozen_status = False
-        # self.mylogging.logger.info('account_work7_klas ends')
+    def account_work7_klas(self, user_face):
+        """
+        The result given by my server is no well-matched user.
+        :return:
+        """
+        self.mylogging.logger.info('account_work7_klas begins')
+
+        # the first way is to detect again;
+        # self.thread0_0.start()
+        # if self.gesture_frame_frozen_status:
+        #     # adding this since the account thread result might be no well matched user and you freeze the frame.
+        #     self.main_window.stopHandGif()
+        #     self.gesture_frame_frozen_status = False
+
+        # the second way is show the register page for user or to show the the QR code
+        img1 = cv2.cvtColor(user_face, cv2.COLOR_BGR2RGB)  # Actually, the picture can be read in RBG format;
+        height, width, channel = img1.shape  # width=640, height=480
+        bytes_per_line = 3 * width
+        img2 = QImage(img1.data, width, height, bytes_per_line, QImage.Format_RGB888)
+        self.main_window.toPayingView(img2.mirrored(horizontal=True, vertical=False))
+        # self.timer1.start(30 * 1000)
+        try:
+            self.weigher.serial.readyRead.disconnect()
+        except BaseException:
+            pass
+        self.weigher.serial.readyRead.connect(self.weigher.acceptData_back_to_standby)
+        if self.order_link:
+            self.main_window.toRegisterView(qrimage=self.make_qrcode(self.order_link))
+        else:
+            self.main_window.toRegisterView()
+
+        self.mylogging.logger.info('account_work7_klas ends')
 
     def order_work8_klas(self, post_order_success):
         """
@@ -487,10 +618,33 @@ class PaymentSystem_klas(QObject):
             # when len(self.dict01['buy_skuids']) is equal to 0, the post_order_success will be False;
             self.order_number = 'invalid'
             self.new_order_flag = True
-            self.main_window.showErrorInfo(0)
-            self.reminder_weight_wrong_status = True
+            if self.myconfig.data['operating_mode']['normal_error'] == '1':
+                self.main_window.showErrorInfo(0)
+                self.main_window_error_status = True
         self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
         self.mylogging.logger.info('order_work8_klas ends')
+
+    def order_work8_klas02(self, order_link):
+        """
+        :param order_link: if len(thread6.dict01['buy_skuids'])==0, the value of order_link is None; Otherwise, a string which is a link.
+        :return:
+        """
+        self.mylogging.logger.info('order_work8_klas02 begins')
+        if order_link:
+            self.order_link = order_link
+            self.order_number = self.thread6.dict02['data']['order_no']
+            self.new_order_flag = False
+            # self.media_player.player.setMedia(self.media_player.file11)
+            # self.media_player.player.play()
+        else:
+            # when len(self.dict01['buy_skuids']) is equal to 0, the post_order_success will be False;
+            self.order_number = 'invalid'
+            self.new_order_flag = True
+            if self.myconfig.data['operating_mode']['normal_error'] == '1':
+                self.main_window.showErrorInfo(0)
+                self.main_window_error_status = True
+        self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
+        self.mylogging.logger.info('order_work8_klas02 ends')
 
     def ml_gesture_work10_klas01(self):
         """
@@ -523,6 +677,7 @@ class PaymentSystem_klas(QObject):
     def websocket_work11(self):
         """My server says that the gesture-pay is successful which indicates the end of such transaction"""
         self.mylogging.logger.info('websocket_work11 begins')
+        self.transaction_not_end_status = False
         self.main_window.toPaySuccessView(name=self.user_name, image=self.user_portrait)
         self.thread10.dict01['order_no'] = self.order_number
         self.thread10.img_user = copy.deepcopy(self.user_img)  # I am afraid the network problem and it need to resend them.
@@ -530,13 +685,24 @@ class PaymentSystem_klas(QObject):
         self.thread10.img_gesture = copy.deepcopy(self.gesture_img)
         self.thread10.start()  # What if the image-upload thread still runs since the network problem in last purchase?
         self.timer1.start(3000)
-        self.media_player.player.setMedia(self.media_player.file05)
+        self.media_player.player.setMedia(self.media_player.file03)
         self.media_player.player.play()
         self.mylogging.logger.info('websocket_work11 ends')
+
+    def websocket_work11_klas(self, success_order_number):
+        """
+        My server says that the gesture-pay is successful which indicates the end of such transaction
+        :param pay_mode: '1' indicates the order is finished by scanning the QR code; '2' indicates the order is finished by gesture-pay;
+        """
+        self.mylogging.logger.info('websocket_work11_klas begins')
+        self.success_order_number = success_order_number
+        self.door_controller.sendDegauss(1)
+        self.mylogging.logger.info('websocket_work11_klas ends')
 
     def gesture_pay_work12(self):
         """My server says that the gesture-pay is failed since one user only can pay 5 times everyday"""
         self.mylogging.logger.info('gesture_pay_work12 begins')
+        self.transaction_not_end_status = False
         self.main_window.toPayFailView(name=self.user_name, image=self.user_portrait)
         self.timer1.start(3000)
         self.media_player.player.setMedia(self.media_player.file04)
@@ -544,9 +710,11 @@ class PaymentSystem_klas(QObject):
         self.mylogging.logger.info('gesture_pay_work12 ends')
 
     def websocket_work12(self):
-        """My server says that the gesture-pay is failed since the account value is not enough;
+        """
+        My server says that the gesture-pay is failed since the account value is not enough;
         """
         self.mylogging.logger.info('websocket_work12 begins')
+        self.transaction_not_end_status = False
         self.main_window.toPayFailView(name=self.user_name, image=self.user_portrait)
         self.timer1.start(3000)
         self.media_player.player.setMedia(self.media_player.file04)
@@ -556,6 +724,9 @@ class PaymentSystem_klas(QObject):
     def websocket_work13(self, door_id):
         """My server says opening the specific door."""
         self.mylogging.logger.info('websocket_work13 begins')
+        self.door_controller.sendOpenDoorIn(int(door_id))
+        self.media_player.player.setMedia(self.media_player.file01)
+        self.media_player.player.play()
         self.mylogging.logger.info('websocket_work13 ends')
 
     def ml_gesture_work15a(self, gesture_img, datetime):
@@ -577,7 +748,7 @@ class PaymentSystem_klas(QObject):
         :return:
         """
         if self.thread0_0.isRunning():
-            cv2.imwrite(os.path.join(self.working_images_path, '%s_items.jpg' % datetime.strftime('%Y%m%d_%Hh%Mm%Ss')), items_img)
+            # cv2.imwrite(os.path.join(self.working_images_path, '%s_items.jpg' % datetime.strftime('%Y%m%d_%Hh%Mm%Ss')), items_img)
             self.items_img = items_img
             self.items_time = datetime
 
@@ -609,17 +780,40 @@ class PaymentSystem_klas(QObject):
         This function is initialized by the failed_detection_local signal which indicates there is no user detected.
         """
         # self.mylogging.logger.info('account_work17_klas begins')
-        self.thread0_0.start()
+
         if self.gesture_frame_frozen_status:
             # adding this since the account thread result might be no well matched user and you freeze the frame.
             self.main_window.stopHandGif()
             self.gesture_frame_frozen_status = False
-        self.failed_detection_local_counter = self.failed_detection_local_counter + 1
-        if self.failed_detection_local_counter > 3:
-            self.failed_detection_local_counter = 0
-            self.failed_detection_multiple_counter = 0
+
+        # the first way to avoid the restart of the media content;
+        # self.failed_detection_local_counter = self.failed_detection_local_counter + 1
+        # if self.failed_detection_local_counter > 3:
+        #     self.failed_detection_local_counter = 0
+        #     self.failed_detection_multiple_counter = 0
+        #     self.media_player.player.setMedia(self.media_player.file12)
+        #     self.media_player.player.play()
+
+        # the second way to avoid the restart of the media content;
+        media_status = self.media_player.player.mediaStatus()
+        if media_status == QMediaPlayer.EndOfMedia or media_status == QMediaPlayer.NoMedia:
             self.media_player.player.setMedia(self.media_player.file12)
             self.media_player.player.play()
+            self.failed_detection_local_counter = self.failed_detection_local_counter + 1
+        if self.failed_detection_local_counter > 2:
+            self.main_window.toPayingView()
+            if self.order_link:
+                self.main_window.toRegisterView(qrimage=self.make_qrcode(self.order_link))
+            else:
+                self.main_window.toRegisterView()
+            try:
+                self.weigher.serial.readyRead.disconnect()
+            except BaseException:
+                pass
+            self.weigher.serial.readyRead.connect(self.weigher.acceptData_back_to_standby)
+        else:
+            self.thread0_0.start()
+
         # self.mylogging.logger.info('account_work17_klas ends')
 
     def account_work18_klas(self):
@@ -632,12 +826,21 @@ class PaymentSystem_klas(QObject):
             # adding this since the account thread result might be no well matched user and you freeze the frame.
             self.main_window.stopHandGif()
             self.gesture_frame_frozen_status = False
-        self.failed_detection_multiple_counter = self.failed_detection_multiple_counter + 1
-        if self.failed_detection_multiple_counter > 3:
-            self.failed_detection_local_counter = 0
-            self.failed_detection_multiple_counter = 0
+
+        # the first way to avoid the restart of the media content;
+        # self.failed_detection_multiple_counter = self.failed_detection_multiple_counter + 1
+        # if self.failed_detection_multiple_counter > 3:
+        #     self.failed_detection_local_counter = 0
+        #     self.failed_detection_multiple_counter = 0
+        #     self.media_player.player.setMedia(self.media_player.file13)
+        #     self.media_player.player.play()
+
+        # the second way to avoid the restart of the media content;
+        media_status = self.media_player.player.mediaStatus()
+        if media_status == QMediaPlayer.EndOfMedia or media_status == QMediaPlayer.NoMedia:
             self.media_player.player.setMedia(self.media_player.file13)
             self.media_player.player.play()
+
         # self.mylogging.logger.info('account_work18_klas ends')
 
     def weigher_work19_klas(self):
@@ -646,7 +849,7 @@ class PaymentSystem_klas(QObject):
         """
         self.mylogging.logger.info('weigher_work19_klas begins')
         if self.timer1.isActive():
-            self.timer1.start(10)
+            self.timer1.start(10)  # unit is milli-second
         self.mylogging.logger.info('weigher_work19_klas ends')
 
     def weigher1_work20_klas(self):
@@ -658,11 +861,81 @@ class PaymentSystem_klas(QObject):
 
     def gesture_pay_work21(self):
         """
-        to eliminate the magnetism of items
+        to eliminate the magnetism of items after the successful post of order;
         :return:
         """
-        pass
-        # self.door_controller.sendDegauss(1)
+        self.mylogging.logger.info('gesture_pay_work21 begins')
+        self.door_controller.sendDegauss(1)
+        self.mylogging.logger.info('gesture_pay_work21 ends')
+
+    def door_controller_work22(self):
+        """
+        user has something not payed.
+        :param door_id:
+        :return:
+        """
+        self.mylogging.logger.info('door_controller_work22 begins')
+        media_status = self.media_player.player.mediaStatus()
+        if media_status == QMediaPlayer.EndOfMedia or media_status == QMediaPlayer.NoMedia:
+            self.media_player.player.setMedia(self.media_player.file07)
+            self.media_player.player.play()
+        self.mylogging.logger.info('door_controller_work22 ends')
+
+    def door_controller_work23(self,door_id):
+        """
+        user finishes the payment or does not buy anything.
+        :param door_id:
+        :return:
+        """
+        self.mylogging.logger.info('door_controller_work23 begins')
+        self.media_player.player.setMedia(self.media_player.file05)
+        self.media_player.player.play()
+        # The machine will open the door automatically, hence you do not need to do it manually;
+        # self.door_controller.sendOpenDoorOut(int(door_id))
+        self.mylogging.logger.info('door_controller_work23 ends')
+
+    def door_controller_work24(self, door_id):
+        """
+        The magnetic of item is eliminated successfully;
+        :param door_id:
+        :return:
+        """
+        self.mylogging.logger.info('door_controller_work24 begins')
+        self.transaction_not_end_status = False
+        self.main_window.toPaySuccessView(name=self.user_name, image=self.user_portrait)
+
+        # I am afraid the network problem and it need to resend them.
+        if self.pay_clear_by_gesture:
+            self.thread10.img_user = copy.deepcopy(self.user_img)
+            self.thread10.img_items = copy.deepcopy(self.items_img)
+            self.thread10.img_gesture = copy.deepcopy(self.gesture_img)
+            self.thread11.frame = copy.deepcopy(self.items_img)
+        else:
+            # if the user pays by QR code, the img_user will be replaced by the gesture_img;
+            self.thread10.img_user = copy.deepcopy(self.gesture_img)
+            self.thread10.img_items = copy.deepcopy(self.items_img)
+            self.thread10.img_gesture = copy.deepcopy(self.gesture_img)
+            self.thread11.frame = copy.deepcopy(self.items_img)
+        self.thread10.dict01['order_no'] = self.success_order_number
+        self.thread10.start()  # What if the image-upload thread still runs since the network problem in last purchase?
+        self.thread11.dict01['order_no'] = self.success_order_number
+        self.thread11.start()
+        self.timer1.start(3000)
+        self.media_player.player.setMedia(self.media_player.file03)
+        self.media_player.player.play()
+        self.mylogging.logger.info('door_controller_work24 ends')
+
+    def websocket_work25(self, success_order_number):
+        """
+        The user finish the payment by QR code;
+        :return:
+        """
+        self.mylogging.logger.info('websocket_work25 begins')
+        # this status will be used after successful elimination of magnetic (work24);
+        self.pay_clear_by_gesture = False # just used for upload image
+        self.success_order_number = success_order_number
+        self.door_controller.sendDegauss(1)
+        self.mylogging.logger.info('websocket_work25 ends')
 
     def account_error01(self):
         """
@@ -673,8 +946,9 @@ class PaymentSystem_klas(QObject):
         if self.error_try_times_account < 3:
             self.thread5.start()
         else:
-            self.main_window.showErrorInfo(1)
-            self.reminder_weight_wrong_status = True
+            if self.myconfig.data['operating_mode']['normal_error'] == '1':
+                self.main_window.showErrorInfo(1)
+                self.main_window_error_status = True
             self.mylogging.logger.error('Retry the account thread but errors still exist.')
             self.timer1.start(8*1000)
         self.mylogging.logger.error('account_error01 ends')
@@ -692,8 +966,9 @@ class PaymentSystem_klas(QObject):
         if self.error_try_times_gesture_pay < 3:
             self.thread8.start()
         else:
-            self.main_window.showErrorInfo(1)
-            self.reminder_weight_wrong_status = True
+            if self.myconfig.data['operating_mode']['normal_error'] == '1':
+                self.main_window.showErrorInfo(1)
+                self.main_window_error_status = True
             self.mylogging.logger.error('Retry the gesture pay thread but errors still exist.')
             self.timer1.start(8*1000)
         self.mylogging.logger.error('gesture_pay_error02 ends')
@@ -721,8 +996,9 @@ class PaymentSystem_klas(QObject):
         self.mylogging.logger.error('order_error04 begins')
         self.main_window.cleanCommodity()
         self.main_window.setSumPrice('0')
-        self.main_window.showErrorInfo(1)
-        self.reminder_weight_wrong_status = True
+        if self.myconfig.data['operating_mode']['normal_error'] == '1':
+            self.main_window.showErrorInfo(1)
+            self.main_window_error_status = True
         self.order_number = 'invalid'
         self.new_order_flag = True
         self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
@@ -742,8 +1018,9 @@ class PaymentSystem_klas(QObject):
             self.new_order_flag = True
             self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
         else:
-            self.main_window.showErrorInfo(1)
-            self.reminder_weight_wrong_status = True
+            if self.myconfig.data['operating_mode']['normal_error'] == '1':
+                self.main_window.showErrorInfo(1)
+                self.main_window_error_status = True
             self.mylogging.logger.error('Retry the sql thread but errors still exist.')
             self.timer1.start(5*1000)
         self.mylogging.logger.error('sql_error05 ends')
@@ -753,8 +1030,9 @@ class PaymentSystem_klas(QObject):
         Other error might happen in the SQL thread.
         """
         self.mylogging.logger.error('sql_error06 begins')
-        self.main_window.showErrorInfo(0)
-        self.reminder_weight_wrong_status = True
+        if self.myconfig.data['operating_mode']['normal_error'] == '1':
+            self.main_window.showErrorInfo(1)
+            self.main_window_error_status = True
         self.main_window.cleanCommodity()
         self.main_window.setSumPrice('0')
         self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
@@ -768,16 +1046,63 @@ class PaymentSystem_klas(QObject):
         self.mylogging.logger.error('order_error07 begins')
         self.order_number = 'invalid'
         self.new_order_flag = True
-        self.main_window.showErrorInfo(1)
-        self.reminder_weight_wrong_status = True
+        if self.myconfig.data['operating_mode']['normal_error'] == '1':
+            self.main_window.showErrorInfo(1)
+            self.main_window_error_status = True
         self.weigher.serial.readyRead.connect(self.weigher.acceptData_order)
         self.mylogging.logger.error('order_error07 ends')
+
+    def gesture_pay_error08(self):
+        """
+        The status code of the gesture pay thread is not 200 and the reason is unknown;
+        :return:
+        """
+        self.mylogging.logger.error('gesture_pay_error08 begins')
+        self.transaction_not_end_status = False
+        self.timer1.start(30 * 1000)
+        self.mylogging.logger.error('gesture_pay_error08 ends')
+
+    def item_quality_error09(self):
+        """
+        The status code of the item quality thread is not 200 and the reason is unknown;
+        :return:
+        """
+        self.mylogging.logger.info('item_quality_error09 begins')
+        self.error_try_times_item_quality = self.error_try_times_item_quality + 1
+        if self.error_try_times_item_quality <3:
+            self.thread11.start()
+        self.mylogging.logger.info('item_quality_error09 ends')
+
+    def make_qrcode(self, content):
+        """
+        :param content: the url inside the QR code
+        :return: PIL.ImageQt.ImageQt class which is like QIamge class!
+        """
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=8, border=4)
+        qr.add_data(content)
+        qr.make(fit=True)  # to avoid data overflow errors
+        img2 = qr.make_image()
+        img2 = img2.convert("RGBA")
+        # adding the image to the QR code
+        img2_w, img2_h = img2.size
+        size_w = int(img2_w / 4)
+        size_h = int(img2_h / 4)
+        icon_w, icon_h = self.icon_w, self.icon_h
+        if self.icon_w > size_w:
+            icon_w = size_w
+        if self.icon_h > size_h:
+            icon_h = size_h
+        icon = self.icon.resize((icon_w, icon_h), Image.ANTIALIAS)
+        w = int((img2_w - icon_w) / 2)
+        h = int((img2_h - icon_h) / 2)
+        img2.paste(icon, (w, h), icon)
+        return ImageQt(img2)
 
     def closeEvent(self, event):
         """
         This has unexpected outcome and the reason is not been discovered yet.
         """
-        if self.myconfig.data['operating_mode']['isdebug'] == '1':
+        if self.myconfig.data['operating_mode']['weight_error'] == '1':
             dialog_status = self.camera_dialog.close()
             self.mylogging.logger.info('The camera item dialog closed with %s' % dialog_status)
         # self.main_widget.mainlayout.rightlayout.secondlayout.thread1.status = False  # The second way to stop the thread.

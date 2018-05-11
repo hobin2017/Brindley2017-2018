@@ -47,6 +47,7 @@ class MyThread8(QThread):
 
 
     def on_reconnect(self):
+        self.socket.emit('join', self.storeId)
         print('WebSocket-Client thread reconnects')
 
 
@@ -172,16 +173,17 @@ class MyThread8_1(QThread):
 
         """
         # print('WebSocket-Client thread gets:', args)
-        self.mylogger8_1.info('WebSocket-Client thread gets: %s' % args)
-        if args[0]['action'] == 'opendoor':
-            self.detect_opendoor.emit(args[0]['door_id'])
-        elif args[0]['action'] == 'payclear' and self.screenId == args[0]['screen_id']:
-            if args[0]['code'] == '1':
-                self.payclear_success.emit()
-            elif args[0]['code'] == '0':
-                self.payclear_failure.emit()
-
-
+        self.mylogger8_1.info(u'WebSocket-Client thread gets: %s' % args)
+        try:
+            if args[0]['action'] == 'opendoor' and self.doorId == args[0]['door_id']:
+                self.opendoor.emit(args[0]['door_id'])
+            elif args[0]['action'] == 'payclear' and self.screenId == args[0]['screen_id']:
+                if args[0]['code'] == '1':
+                    self.payclear_success.emit()
+                elif args[0]['code'] == '0':
+                    self.payclear_failure.emit()
+        except BaseException:
+            self.mylogger8_1.error('---------Error happens in the Websocket-------------', exc_info=True)
 
     def run(self):
         try:
@@ -200,6 +202,113 @@ class MyThread8_1(QThread):
         except Exception as e:
             self.mylogger8_1.error(e)
             self.mylogger8_1.error('--------------Error happens in the ping_timer function of WebSocket Thread-------------------------', exc_info=True)
+
+
+class MyThread8_1_klas(QThread):
+    """
+    WebSocket client
+    It sends data to my server to indicate that the machine is alive;
+    It receives the data from my server to open door;
+    It receives the data from my server to confirm that the order is paid by QR code or gesture method;
+    Compared with the MyThread8 class, the logging module is introduced to this module at first time.
+    Compared with the MyThread8_1 class, this class will emit payclear_success_code signal if the user pays by QR code;
+    Compared with the MyThread8_1 class, the payclear_success and payclear_success_code signals will carry the order number;
+    """
+    payclear_success = pyqtSignal(object)  # order number,
+    payclear_success_code = pyqtSignal(object)  # order number
+    payclear_failure = pyqtSignal()
+    opendoor = pyqtSignal(object)
+
+    def __init__(self, logger_name='hobin', *, socketurl='http://sys.commaai.cn', socketport=60000, storename='development center for testing',
+                 storeid='2', screenid='1', doorid='1', **kwargs):
+        super(MyThread8_1_klas, self).__init__()
+        # the first way to configuring the parameters, almost all parameters get their value from those named keyword arguments.
+        self.socketUrl = socketurl
+        self.storeName = storename
+        self.storeId = storeid
+        self.screenId = screenid
+        self.doorId = doorid
+        self.socket = SocketIO(socketurl, port=int(socketport))
+        self.socket.on('reconnect', self.on_reconnect)
+        self.socket.on('connect', self.on_connect)
+        self.socket.on('disconnect', self.on_disconnect)
+        self.socket.on('msg', self.on_msg_response)  # for listen
+
+        # the second way to configure the parameters, almost all parameters get their value from the keyword argument 'kwargs'.
+        # self.socketUrl = kwargs['socketUrl']
+        # self.storeName = kwargs['storeName']
+        # self.storeId = kwargs['storeId']
+        # self.screenId = kwargs['screenId']
+        # self.socket = SocketIO(kwargs['socketUrl'], port=kwargs['socketPort'])
+        # self.socket.on('reconnect', self.on_reconnect)
+        # self.socket.on('connect', self.on_connect)
+        # self.socket.on('disconnect', self.on_disconnect)
+        # self.socket.on('msg', self.on_msg_response)  # for listen
+
+        # some variables
+        self.mylogger8_1_klas = logging.getLogger(logger_name)
+        self.msg = '{"store_id":"%s", "remark":"%s", "screen_id": "%s"}' % (self.storeId, self.storeName, self.screenId)
+        self.mylogger8_1_klas.info('Initialization of WebSocket thread is successful.')
+
+    def on_connect(self):
+        self.mylogger8_1_klas.info('WebSocket-Client thread connects')
+
+    def on_disconnect(self):
+        """I guess the error information comes from the LoggingNamespace."""
+        self.mylogger8_1_klas.info('WebSocket-Client thread disconnects')
+
+    def on_reconnect(self):
+        self.socket.emit('join', self.storeId)
+        self.mylogger8_1_klas.info('WebSocket-Client thread reconnects')
+
+    def on_msg_response(self, *args):
+        """
+        Getting the response from the server;
+        input parameter 'args': it is tuple type;
+        If the information is related to the payment, the first element is a dictionary.
+          If using qrcode to buy the products, the result may look like this:
+           ({'token': 'a45726618c1b60f794e6120877a5292b03edeeb1', 'store_id': '2', 'action': 'payclear', 'order_no': 'SO201802071734584166', 'pay_type': '1', 'user_id': '3503', 'rfid_list': '', 'screen_id': '1', 'door_id': '1', 'code': '1', 'msg': 'success'},)
+          If using gesture to buy the products, the result may look like this:
+           ({'token': 'a45726618c1b60f794e6120877a5292b03edeeb1', 'store_id': '2', 'action': 'payclear', 'order_no': 'SO201802071740584193', 'pay_type': '1', 'user_id': '3503', 'rfid_list': '', 'screen_id': '1', 'door_id': '1', 'code': '1', 'msg': 'success'},)
+        If the information is related to the door, the first element is a dictionary.
+          If using face recognition to open door is failed, there will be not result.
+          If using face recognition to open door is successful, the result may look like this:
+           ({'token': '52ca8bc2253529843378def2972249da3b934349', 'store_id': '2', 'action': 'opendoor', 'door_id': '1', 'user_id': '336', 'type': 'face', 'code': '1', 'msg': 'success'},)
+          If using qrcode to open door, the result may look like this:
+           ({'token': '52ca8bc2253529843378def2972249da3b934349', 'store_id': '2', 'action': 'opendoor', 'user_id': '', 'type': 'qrcode', 'open_id': '', 'door_id': '1', 'code': '1', 'msg': 'success'},)
+
+        """
+        self.mylogger8_1_klas.info(u'WebSocket-Client thread gets: %s' % args)
+        try:
+            if args[0]['action'] == 'opendoor' and self.doorId == args[0]['door_id']:
+                self.opendoor.emit(args[0]['door_id'])
+            elif args[0]['action'] == 'payclear' and self.screenId == args[0]['screen_id']:
+                if args[0]['code'] == '1':
+                    if args[0]['pay_model'] == '1':
+                        self.payclear_success_code.emit(args[0]['order_no'])
+                    else:
+                        # if pay_model is 2, the user finish the payment by gesture;
+                        self.payclear_success.emit(args[0]['order_no'])
+                elif args[0]['code'] == '0':
+                    self.payclear_failure.emit()
+        except BaseException:
+            self.mylogger8_1_klas.error('---------Error happens in the Websocket-------------', exc_info=True)
+
+    def run(self):
+        try:
+            self.socket.emit('join', self.storeId)
+            self.socket.wait()  # wait forever
+        except Exception as e:
+            self.mylogger8_1_klas.error('---------------------Error happens in the run funciton of WebSocket Thread-------------------------', exc_info=True)
+
+    def ping_timer(self):
+        """It is like heart-beating."""
+        try:
+            self.mylogger8_1_klas.info('WebSocket-Client thread sends: %s' % self.msg)
+            self.socket.emit('ping server', self.msg)
+        except Exception as e:
+            self.mylogger8_1_klas.error(e)
+            self.mylogger8_1_klas.error('--------------Error happens in the ping_timer function of WebSocket Thread-------------------------', exc_info=True)
 
 
 class MyThread8_2(QObject):

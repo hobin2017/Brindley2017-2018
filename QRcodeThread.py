@@ -439,6 +439,112 @@ class MyThread5_3(QThread):
                 self.error.emit()
 
 
+class MyThread5_3_1(QThread):
+    """
+    It also called the order thread since the order information comes from here;
+    Compared with the MyThread5 class, the logging module is introduced to this module at first time.
+    Compared with the MyThread5 class, the resp01 is modified to self.resp01.
+    Compared with the MyThread5_1 class, 'try...except...' is added for 'self.resp01 = requests.post()'.
+    Compared with the MyThread5_2 class, this class does not need to emit the QR code and it emits self.post_order_success in stead..
+    Compared with the MyThread5_2 class, the original header of requests is reloaded by the self.headers01 (the 'Connection' header changes from keep-alive to close);
+    Compared with the MyThread5_3 class, this class emit the order_link instead after successful post;
+    Compared with the MyThread5_3 class, this class will take care of the status code when it is not 200;
+    """
+    finished = pyqtSignal(object)
+    order_error = pyqtSignal()
+    timeout_network = pyqtSignal()
+    error = pyqtSignal()
+
+    def __init__(self, parent=None, logger_name='hobin', *, url='http://api.commaai.cn/order/order/create_sku_order',
+                 sign_key= '4b111cc14a33b88e37e2e2934f493458', utm_medium='app', utm_source='box',
+                 store_id = '2',screen_id= '1', **kwargs):
+        super(MyThread5_3_1, self).__init__(parent)
+        # the first way to configuring the parameters, almost all parameters get their value from those named keyword arguments.
+        self.url = url
+        self.sign_key = sign_key
+        self.dict01 = {"api_sign": None,
+                       'utm_medium': utm_medium,
+                       'utm_source': utm_source,
+                       'store_id': store_id,
+                       'screen_id':screen_id,
+                       'client_time': None,
+                       'buy_skuids': ''}
+
+        # the second way to configure the parameters, almost all parameters get their value from the keyword argument 'kwargs'.
+        # self.url = kwargs['url']
+        # self.sign_key = kwargs['sign_key']
+        # self.dict01 = {"api_sign": None,
+        #                'utm_medium': kwargs['utm_medium'],
+        #                'utm_source': kwargs['utm_source'],
+        #                'store_id': kwargs['store_id'],
+        #                'screen_id': kwargs['screen_id'],
+        #                'client_time': None,
+        #                'buy_skuids': ''}
+
+        # some variables
+        self.parent = parent
+        self.mylogger5_3_1 = logging.getLogger(logger_name)
+        self.headers01 = {'User-Agent': 'python-requests', 'Accept': '*/*', 'Accept-Encoding': 'gzip, deflate',
+                          'Connection': 'close'}
+        self.resp01 = None
+        self.dict02 = {}  # the dictionary object of the first HTTP result
+        self.post_order_success = False
+        self.mylogger5_3_1.info('The initialization of Order thread is successful.')
+
+
+    def api_sign_hexdigest(self, dict):
+        """
+        It is used to produce the digest of the information;
+        The rule is specified in 'check_str';
+        :param dict: the dictionary data which will be passed to the server;
+        :return:
+        """
+        ordered_dict = collections.OrderedDict(sorted(dict.items()))
+        # print('ordered_dict', ordered_dict)
+
+        input = '&'.join([key + '=' + str(value) for (key, value) in ordered_dict.items() if key != 'api_sign'])
+        # print('input', input)
+
+        check_str = input + '&' + self.sign_key
+        # print('check_str', check_str)
+
+        hexdigest = hashlib.sha256(check_str.encode()).hexdigest()
+        # print('hexdigest', hexdigest)
+
+        return hexdigest
+
+
+    def run(self):
+        self.mylogger5_3_1.info('Order thread begins')
+        # the value of self.dict01['buy_skuids'] is given before the run function and it is 'str' type;
+        # Currently, it is given after the completion of the sql thread;
+        if len(self.dict01['buy_skuids']) == 0:
+            self.mylogger5_3_1.info('Order thread ends')
+            self.finished.emit(None)
+        else:
+            self.dict01['client_time'] = str(int(datetime.now().timestamp()))
+            self.dict01['api_sign'] = self.api_sign_hexdigest(self.dict01)
+            try:
+                self.mylogger5_3_1.info('Order thread: the header is %s and the data part is %s' % (self.headers01, self.dict01))
+                self.resp01 = requests.post(self.url, headers=self.headers01, data=self.dict01, timeout=8)
+                # self.mylogger5_3_1.info('The header information of first request is %s' %self.resp01.request.headers)
+                # self.mylogger5_3_1.info('The header information of first response is %s' % self.resp01.headers)
+                if self.resp01.status_code == 200:
+                    self.dict02 = json.loads(self.resp01.text)
+                    self.mylogger5_3_1.info('Order thread ends with new order %s' % self.dict02['data']['order_no'])
+                    self.finished.emit(self.dict02['data']['order_link'])
+                else:
+                    self.mylogger5_3_1.error('Order thread (ends): ---------the status code of the response is not 200 in Order thread---------')
+                    self.order_error.emit()
+
+            except requests.exceptions.ReadTimeout:
+                self.mylogger5_3_1.error('***------------------------Be careful! Error occurs in Order thread!------------------------***', exc_info=True)
+                self.timeout_network.emit()
+            except BaseException:
+                self.mylogger5_3_1.error('***------------------------Be careful! Error occurs in Order thread!------------------------***',exc_info=True)
+                self.error.emit()
+
+
 class MyThread5_T1(MyThread5):
     """
     It also called the order thread since the order information comes from here;

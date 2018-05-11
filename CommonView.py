@@ -11,6 +11,7 @@ import sys,cv2
 from SkuSysn import SkuSysnServer
 import numpy as np
 import requests
+from SkuSysn import * 
 
 QTextCodec.setCodecForLocale(QTextCodec.codecForName("utf-8"));
 
@@ -126,15 +127,17 @@ def handAppQRcode(path):
 
 class MainWindow(QQmlApplicationEngine):
 	"""docstring for MainWindow"""
-	def __init__(self,cameraId=1,cameraW=640,cameraH=480,storeid=2, **kwargs):
+	def __init__(self,cameraId=0,cameraW=640,cameraH=480,sysService=None):
 		super(MainWindow, self).__init__()
 		qmlRegisterType(CustomOpenCVItem,'MyModel',1,0,'CustomOpenCVItem')
 		qmlRegisterType(PicItem,'MyModel',1,0,'PicItem')
 		qmlRegisterType(CommodityPicItem,'MyModel',1,0,'CommodityPicItem')
 
-		# self.sysService = SkuSysnServer(dbHost="127.0.0.1",store_id=str(17))#加载同步服务
-		# self.sysService.sysFinshSignal.connect(CommodityPicItem.initPic)
-		# self.sysService.timoutEvent()
+	#	self.sysService = SkuSysnServer(dbHost=dbHost,user=user,password=password,dbname=dbname,store_id=str(storeid),apiUrl=apiUrl)#加载同步服务
+		if sysService!=None:
+			self.sysService = sysService
+			self.sysService.sysFinshSignal.connect(CommodityPicItem.initPic)
+			self.sysService.timoutEvent()
 
 		self.load(QUrl("QML/main.qml"))
 
@@ -143,30 +146,17 @@ class MainWindow(QQmlApplicationEngine):
 			sys.exit()
 		self.rootobject = self.rootObjects()[0]
 
-		self.storeid = storeid
-		# self.initLittleAppQRcode()
+		self.storeid = 17
+		#self.initLittleAppQRcode()
 		
 		self.cameraItem = self.rootobject.getCameraPersionItem()
 		self.cameraItem.setWidthAndHeight(cameraW,cameraH)
 		self.cameraItem.setCameraID(cameraId)
 		self._capture = self.rootobject.getCameraPersionItem()._capture
 
-
-
-	def initLittleAppQRcode(self):
-		appQRcode = None
-		littleAppUrl = "https://zhy.sys.commaretail.com/auth/qrcode/weapp?cmkey=reface&store_id="+str(self.storeid)
-		r = requests.get(littleAppUrl, stream=True,headers={"Accept":"application/octet-stream"})
-		picData =  r.raw.read()
-		if SkuSysnServer.is_jpg(None,picData):
-			with open(u"Images/app.jpg","wb") as fd:
-				fd.write(picData)
-			handAppQRcode(u"Images/app.jpg")
-			appQRcode = QImage("./Images/app.jpg")
-		else:
-			appQRcode = QImage("./Images/appbak.jpg")
-
-		self.rootobject.getLittleApp().updateImage(appQRcode)
+		self.qrItem = self.rootobject.getLittleApp()
+		self.qrItem.htw = 1
+		
 
 
 	#return class CustomOpenCVItem or False
@@ -179,6 +169,7 @@ class MainWindow(QQmlApplicationEngine):
 
 	#show Settlement view
 	def toSettlement(self):
+		self.rootobject.setScanGif(True)
 		self.rootobject.toSettlementView()
 
 	#show WellCome view
@@ -187,7 +178,7 @@ class MainWindow(QQmlApplicationEngine):
 
 	#正在支付界面 image 摄像头截图
 	def toPayingView(self,image=None):
-		if image!=None:
+		if image!=None and (not image.isNull()):
 			self.getFaceImage().updateImage(image)
 		else:
 			s = QImage("./Images/timg.jpg")
@@ -197,31 +188,39 @@ class MainWindow(QQmlApplicationEngine):
 		self.rootobject.toPaying()
 		
 
-	#未注册界面
-	def toRegisterView(self,image=None):
-		self.initLittleAppQRcode()
-		if image!=None:
+	#未注册界面 image 头像图片 ，qrimage二维码图片
+	def toRegisterView(self,image=None,qrimage=None):
+		#self.initLittleAppQRcode()
+		i = 1
+		if image!=None and (not image.isNull()):
 			self.getFaceImage().updateImage(image)
 		else:
-			self.getFaceImage().updateImage(QImage("./Images/timg.jpg"))
-		self.rootobject.toRegisterView()
+			i=0
+		if qrimage!=None:
+			self.qrItem.setVisible(True)
+			self.qrItem.updateImage(qrimage)
+		else:
+			self.qrItem.setVisible(False)
+		self.rootobject.toRegisterView(i)
 
 	#支付成功界面
 	def toPaySuccessView(self,image=None,name = None):
-		if image!=None:
+		if image!=None and (not image.isNull()):
 			self.getFaceImage().updateImage(image)
-		else:
-			self.getFaceImage().updateImage(QImage("./Images/timg.jpg"))
+	#	else:
+	#		self.getFaceImage().updateImage(QImage("./Images/timg.jpg"))
 		if name!=None:
 			self.rootobject.setUserName(name)
+		else:
+			self.rootobject.setUserName("")
 		self.rootobject.toPaySuccess()
 	
 	#支付失败界面
 	def toPayFailView(self,image=None,name = None):
-		if image!=None:
+		if image!=None and (not image.isNull()):
 			self.getFaceImage().updateImage(image)
-		else:
-			self.getFaceImage().updataImage(QImage("./Images/timg.jpg"))
+	#	else:
+	#		self.getFaceImage().updateImage(QImage("./Images/timg.jpg"))
 		if name!=None:
 			self.rootobject.setUserName(name)
 		self.rootobject.toPayFail()
@@ -240,19 +239,21 @@ class MainWindow(QQmlApplicationEngine):
 		self.rootobject.hideError()
 
 	#检测到商品，正在识别界面
-	def toIdentifingView(self):		
-		pass		
-		#self.rootobject.toIdentifing()
+	def toIdentifingView(self):
+		self.rootobject.toIdentifing()
 
 	#添加商品
 	#picid = enum[1,2,3,4] ,name = str,image=sku_id,price=str
 	def addCommodity(self,picid,name,image,price):
 		self.rootobject.getPicObject(picid).setCommodImage(image)
+		if len(name)>13:
+			name = name[:12]+"..."
 		self.rootobject.setCommodity(picid,name,price)
 	
 	#清空商品
 	def cleanCommodity(self):
 		self.rootobject.cleanCommodity()
+
 
 	#sum price
 	def setSumPrice(self,price):
@@ -266,11 +267,16 @@ class MainWindow(QQmlApplicationEngine):
 		if width % 2!=0:
 			width+=1
 		self.cameraItem.handWidth=width
+		self.rootobject.setScanGif(False)
 	
 	def stopHandGif(self):
 		self.cameraItem.ispaint = True
+		self.rootobject.setScanGif(True)
 		self.cameraItem.stopHandGif()
 
+	#提示移动位置 以 识别人脸 ， 自动隐藏
+	def showFaceCantIdentify(self):
+		self.rootobject.showFaceCantIdentify()
 
 
 
@@ -282,11 +288,16 @@ if __name__ == '__main__':
 
 	app = QGuiApplication([])  
 	#handAppQRcode("Images/app.jpg")
-	view = MainWindow(0)
-	view.addCommodity(1,"豆腐","logo","15.5")
-	print(view._capture)
-	ret, frame = view._capture.read()
-	view.toPayingView(QImage("./Images/appbak.jpg"))
+
+
+	sysSevice = SkuSysnServer()
+	view = MainWindow(sysService=sysSevice)
+	
+
+	#ret, frame = view._capture.read()
+	#view.addCommodity(1,"豆腐","logo","15.5")
+	#view.toSettlement()
+	#view.toPayingView(QImage("./Images/appbak.jpg"))
 	#view.showHandGif(300,300,frame)
 	#view.getFaceImage().updateImage(QImage("./Images/app.jpg"))
 	#context.updataImage()

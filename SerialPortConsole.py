@@ -85,7 +85,7 @@ class SerialPortConsole(QSerialPort):
 		self.setDataTerminalReady(True)
 		self.readyRead.connect(self.acceptData)
 		self.data = QByteArray()
-		self.thread = QThread()
+		# self.thread = QThread()
 		#self.moveToThread(self.thread)
 		#self.thread.start()
 		#print("init finash!!!")

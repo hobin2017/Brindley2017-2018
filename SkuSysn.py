@@ -31,7 +31,7 @@ def delete_file_folder(src):
 
 class SkuSysnServer(QThread):
 
-	def __init__(self,dbHost="localhost",user="root",password="commaai2017",dbname="hobin",store_id='2',apiUrl=r"http://api.zhy.commaai.cn",parent=None):
+	def __init__(self,dbHost="localhost",user="root",password="123456",dbname="hobin",store_id='2',screen_id=1,apiUrl=r"http://api.zhy.commaai.cn",parent=None):
 		QThread.__init__(self)
 		self.timer = QTimer(self)
 		self.timer.timeout.connect(self.timoutEvent)
@@ -45,7 +45,9 @@ class SkuSysnServer(QThread):
 		self.dbPassword = password
 		self.dbName = dbname
 		self.store_id = store_id
+		self.screen_id = screen_id
 		self.timer.start(1000*60*5)
+		self.start()
 
 
 	@pyqtSlot()
@@ -66,7 +68,8 @@ class SkuSysnServer(QThread):
 					   'store_id': self.store_id,
 						'utm_medium':'qt',
 					   'utm_source':'box',
-					   'client_time':str(int(datetime.now().timestamp()))
+					   'client_time':str(int(datetime.now().timestamp())),
+					   'screen_id': self.screen_id
 					   }
 		self.dict['api_sign'] = self.api_sign_hexdigest(self.dict)
 		print("sysDBRequests",self.dict['api_sign'])
@@ -131,7 +134,8 @@ class SkuSysnServer(QThread):
 					   'utm_medium':'qt',
 					   'utm_source':'box',
 					   'client_time':str(int(datetime.now().timestamp())),
-					   'sku_ids':sku_ids
+					   'sku_ids':sku_ids,
+					   'screen_id': self.screen_id
 					   }
 		sendData['api_sign'] = self.api_sign_hexdigest(sendData)
 		resp = requests.post(self.finishUrl, data=sendData, timeout=3)
@@ -221,10 +225,10 @@ class SkuSysnServer(QThread):
 
 if __name__=="__main__":
 	app = QApplication(sys.argv)
-	t = SkuSysnServer(dbHost="192.168.20.168")
+	t = SkuSysnServer(dbHost="192.168.20.168",dbname="storegoods")
 	t.timoutEvent()
 
-	#sys.exit(app.exec_())
+	sys.exit(app.exec_())
 
 
 

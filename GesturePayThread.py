@@ -86,9 +86,10 @@ class MyThread7_1(QThread):
     Compared with the MyThread7 class, the resp01 is modified to self.resp01 to check memory leak.
     Compared with the MyThread7 class, the original header of requests is reloaded by the self.headers01 (the 'Connection' header changes from keep-alive to close);
     """
-    order_success = pyqtSignal()
+    order_success = pyqtSignal() # the initial purpose is to eliminate the magnetic of item;
     finished = pyqtSignal(object)
     finished_error = pyqtSignal()
+    network_error = pyqtSignal()
     timeout_http = pyqtSignal()
     connection_error = pyqtSignal()
     error = pyqtSignal()
@@ -151,14 +152,14 @@ class MyThread7_1(QThread):
             self.mylogger7_1.info('Gesture order thread begins')
             self.dict01['time'] = str(int(datetime.now().timestamp()))
             self.dict01['token'] = self.api_sign02_hexdigest()
+            self.mylogger7_1.info('Gesture order thread: the header is %s and the data part is %s' % (self.headers01, self.dict01))
             self.resp01 = requests.post(self.url, headers=self.headers01, data=self.dict01, timeout=8)
-            self.dict02 = json.loads(self.resp01.text)
-            # print(self.dict02)
             if self.resp01.status_code == 200:
+                self.dict02 = json.loads(self.resp01.text)
                 if self.dict02['code'] == 200:
                     # print('Gesture order thread (end): %s.' % self.dict02['msg'])
                     self.mylogger7_1.info('Gesture order thread (end): %s.' % self.dict02['msg'])
-                    self.order_success.emit()
+                    # self.order_success.emit()
                 elif self.dict02['code'] == 100:
                     # print('Gesture order thread (end): %s.' % self.dict02['msg'])
                     self.mylogger7_1.info('Gesture order thread (end): %s.' % self.dict02['msg'])
@@ -169,6 +170,7 @@ class MyThread7_1(QThread):
             else:
                 # print('Gesture order thread: network problem occurs.')
                 self.mylogger7_1.info('Gesture order thread: network problem occurs.')
+                self.network_error.emit()
         except requests.exceptions.ReadTimeout:
             # print('***--------------Network problem happens in gesture order thread (Timeout for the HTTP request).------------------------***')
             self.mylogger7_1.error('***--------------Network problem happens in gesture order thread (Timeout for the HTTP request).------------------------***')

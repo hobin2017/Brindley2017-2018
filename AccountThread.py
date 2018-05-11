@@ -556,10 +556,12 @@ class MyThread4_0_1_3(QThread):
     Compared with MyThread4_0_1 class, this class will emits the 'freezing_gesture' signal after detecting only one face;
     Compared with MyThread4_0_1_1 class, this class will emit the user head rather than the user face image by using finding_head_from_face;
     Compared with MyThread4_0_1_2 class, this class will try to get the user wechat image and if this fails, it will use default image instead;
+    Compared with MyThread4_0_1_2 class, this class will emit the user head when there is no well-matched user.
     """
     user_info_success = pyqtSignal(object, object, object, object)  # user name, user portrait, information about the wechat pay entrust and the the user head
     success = pyqtSignal(object, object)
     failed_detection_web = pyqtSignal()
+    failed_detection_web_klas = pyqtSignal(object) # the user head,
     failed_detection_local = pyqtSignal()
     failed_detection_multiple = pyqtSignal()
     upload_img = pyqtSignal(object, object)
@@ -664,7 +666,7 @@ class MyThread4_0_1_3(QThread):
             # cv2.imwrite('D:\\hobin%s.png' % str(int(datetime.now().timestamp())), gray)
             # It returns the positions of detected faces
             # Currently, the size of the detected faces should be larger the size(565, 424)
-            faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5, minSize=(100, 100))
+            faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=4, minSize=(100, 100))
             if len(faces) == 1:
                 self.freezing_gesture.emit()  # The type of the 'freezing_gesture' signal connection should be Qt.BlockingQueuedConnection
                 self.mylogger4_0_1_3.info('Account thread: freezing success.')
@@ -678,7 +680,7 @@ class MyThread4_0_1_3(QThread):
                     detect_time = datetime.now()
                     self.dict01['client_time'] = str(int(detect_time.timestamp()))
                     self.dict01['api_sign'] = self.api_sign_hexdigest(self.dict01)
-                    # print(self.dict01)
+                    self.mylogger4_0_1_3.info('Account thread: the header is %s and the data part is %s' % (self.headers01, self.dict01))
                     self.resp01 = requests.post(self.url, headers=self.headers01, files=self.files, data=self.dict01, timeout=8)
                     if self.resp01.status_code == 200:
                         self.dict02 = json.loads(self.resp01.text)
@@ -707,11 +709,12 @@ class MyThread4_0_1_3(QThread):
                                     x, y, w, h, frame_width=self.frame.shape[1], frame_height=self.frame.shape[0])
                                 self.user_info_success.emit(self.dict02['data']['nick_name'], self.default_user_portrait,
                                                             self.dict02['data']['wxpay_entrust'],
-                                                            self.frame[head_y_start:head_y_end, head_x_start:head_x_end,
-                                                            :])
+                                                            self.frame[head_y_start:head_y_end, head_x_start:head_x_end,:])
                         else:
                             self.mylogger4_0_1_3.info('Account thread (end): No well-matched user.')
-                            self.failed_detection_web.emit()
+                            head_x_start, head_y_start, head_x_end, head_y_end = self.finding_head_from_face(
+                                x, y, w, h, frame_width=self.frame.shape[1], frame_height=self.frame.shape[0])
+                            self.failed_detection_web_klas.emit(self.frame[head_y_start:head_y_end, head_x_start:head_x_end,:])
                     else:
                         # the network problem might be 404?
                         self.mylogger4_0_1_3.info('Account thread (end): network problem.')

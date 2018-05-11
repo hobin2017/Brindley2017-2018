@@ -94,8 +94,12 @@ def necessaryCheck_linux(**kwargs):
 
 def cameraCheck(**kwargs):
     check_status = False
-    num_camera_item = int(kwargs['cam_user']['cam_num'])
-    num_camera_user = int(kwargs['cam_item']['cam_num'])
+    if kwargs['operating_mode']['cam_path_used'] == '1':
+        camera_user = kwargs['cam_user']['cam_path']
+        camera_item = kwargs['cam_item']['cam_path']
+    else:
+        camera_user = int(kwargs['cam_user']['cam_num'])
+        camera_item = int(kwargs['cam_item']['cam_num'])
     camera_device = QCamera()  # You have to declare QCamera object before using QCameraInfo.availableCameras()
     camera_list = QCameraInfo.availableCameras()
     # print(camera_list)  # the result is like [<PyQt5.QtMultimedia.QCameraInfo object at 0x0000029C36641828>, <PyQt5.QtMultimedia.QCameraInfo object at 0x0000029C36641898>]
@@ -104,8 +108,8 @@ def cameraCheck(**kwargs):
         sys.exit('Camera problem: available cameras are not enough!')  # sys.exit just throws an exception.
     else:
         # try to use cameras to see whether there is some unknown issues.
-        cap0 = cv2.VideoCapture(num_camera_item)
-        cap1 = cv2.VideoCapture(num_camera_user)
+        cap0 = cv2.VideoCapture(camera_item)
+        cap1 = cv2.VideoCapture(camera_user)
         ret0, frame0 = cap0.read()
         ret1, frame1 = cap1.read()
         cap0.release()

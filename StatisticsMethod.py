@@ -65,6 +65,20 @@ def verifyWeight2_1(current_weight, result_sql):
     return lowest_weight< current_weight < highest_weight
 
 
+def verifyWeight2_2(result_sql):
+    """
+    :param result_sql: a list of tuples
+    :return: a tuple which has two values: the lowest value and the highest value
+    """
+    lowest_weight = 0.0
+    highest_weight = 0.0
+    for index, row in enumerate(result_sql):
+        # assuming the float(row[4]) is the expected number;
+        lowest_weight = lowest_weight + float(row[4]) * 0.85
+        highest_weight = highest_weight + float(row[4]) * 1.15
+    return (lowest_weight, highest_weight)
+
+
 if __name__ == '__main__':
     result_sql = [
         ('a','b','c','d','10'),

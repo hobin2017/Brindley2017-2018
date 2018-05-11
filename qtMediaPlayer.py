@@ -30,6 +30,7 @@ class MyMediaPlayer(QObject):
         file11_path = os.path.join(audio_path, 'order_success.wav')
         file12_path = os.path.join(audio_path, 'no_user_detected.wav')
         file13_path = os.path.join(audio_path, 'multiple_user_detected.wav')
+        file14_path = os.path.join(audio_path, 'order_change.wav')
         self.file01 = QMediaContent(QUrl.fromLocalFile(file1_path))  # you are welcome
         self.file02 = QMediaContent(QUrl.fromLocalFile(file2_path))  # Thank you for purchase
         self.file03 = QMediaContent(QUrl.fromLocalFile(file3_path))  # purchase successes
@@ -43,6 +44,7 @@ class MyMediaPlayer(QObject):
         self.file11 = QMediaContent(QUrl.fromLocalFile(file11_path))
         self.file12 = QMediaContent(QUrl.fromLocalFile(file12_path))
         self.file13 = QMediaContent(QUrl.fromLocalFile(file13_path))
+        self.file14 = QMediaContent(QUrl.fromLocalFile(file14_path))
         self.player = QMediaPlayer(self)
         self.player.setVolume(70)
 
