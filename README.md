@@ -5,7 +5,7 @@ Compared with the PaymentSystem_V1_5_0, the modification for Brindley_V2_0_0 is 
 3. the verification of item weight is added after the SQL thread in work5 function. If the verification fails, one dialog (defined in DialogLayout.py file) will show until the verification successes;
 4. my customized QDialog class is introduced in the ShoppingList.py to give a message to customer;
 5. commenting the useless usage QThread.setPriority();
-6. adding the self-checking is firstly introduced into Brindley;
-7. finding one bug caused by the cooperation of the Weigher and the ML Model: the weigher detects zero and it refreshs the ShoppingList Layout (it does not refresh the last_result of the ML Model). What if customer place the same item into the weigher? Answer: the weigher sends signal to ML Model to detect items, and then the detected result is the same as the last result. Hence, the the ShoppingList still is empty! Solution: refreshing the value of last_result of the ML Model in work4b function. 
+6. the self-checking is firstly introduced into Brindley;
+7. fixing one bug: the weigher detects zero and it refreshs the ShoppingList Layout (it does not refresh the last_result of the ML Model). What if customer place the same item into the weigher? Answer: the weigher sends signal to ML Model to detect items, and then the detected result is the same as the last result. Hence, the the ShoppingList still is empty! Solution: refreshing the value of last_result of the ML Model in work4b function. 
 
  
