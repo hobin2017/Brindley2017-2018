@@ -328,15 +328,17 @@ class MyThread3_2_2(QThread):
                             # by default, the last element is the cv_id and the data type is int;
                             reserved_key_list.append(str(record_line[-1]))
                         # self.mylogger3_2_2.debug('SQL thread: %s' % reserved_key_list)
+                        # you must convert the str type back to the int type before sorting since the data type is int in database;
+                        # Otherwise, the index of results_init[index] used in restoring the details, will cause the incorrect result;
                         result_double_reduced = {}
                         for reserved_key in reserved_key_list:
                             if result_reduced.get(reserved_key):
-                                result_double_reduced[reserved_key] = result_reduced.get(reserved_key)
+                                result_double_reduced[int(reserved_key)] = result_reduced.get(reserved_key)
                         self.mylogger3_2_2.debug('SQL thread: %s' %result_double_reduced)
                         # restoring the details
                         result_double_reduced_sorted = sorted(result_double_reduced.keys())
                         for index, key in enumerate(result_double_reduced_sorted):
-                            for _ in range(result_reduced[key]):
+                            for _ in range(result_double_reduced[key]):
                                 results_final.append(results_init[index])
 
                 else:
