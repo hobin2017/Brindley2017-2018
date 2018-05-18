@@ -362,6 +362,7 @@ class MyThread3_2_2(QThread):
 class MyThread3_2_3(QThread):
     """
     Compared with the MyThread3_2_2 class, this class gets access to the database multiple times just like the MyThread3 class.
+    Compared with the MyThread3_2_2 class, this class establish the new connection to the database every time since there is a cache for every connection;
     """
     finished = pyqtSignal(object)
     error_connection = pyqtSignal()
