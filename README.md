@@ -11,3 +11,4 @@ Compared with the last version, the changes are listed below:
 9. cam_path is firstly introduced into Klas;
 10. adding self.failed_detection_local_counter since the no user face is detected forever (In fact, there is a user face but the light affects the algorithm). Currently, it is used to design whether to show the QR code or to restart the ml gesture thread;
 11. using QMeidaPlayer.mediaStatus() before QMeidaPlayer.play() to avoid the restart of the same media content;
+12. the sql thread establish the new connection to the database every time since there is a cache for every connection;
