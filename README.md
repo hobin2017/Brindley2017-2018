@@ -1,5 +1,5 @@
 # PaymentSystem2017
-Compared with Klas_V1_1_4/Klas_V1_1_3, the changes are listed below:
+Compared with Klas_V1_1_4, the changes are listed below:
 1. using new user interface for Singtel, and the camera thread for user is added back. What is more, item model and gesture model are changed as camera obejct changes;
 2. AccountThread, QRcodeThread, GesturePayThread, ImageUploadThread are changes since the server requires additional parameters when doing the HTTP POST;
 3. zeroing the weigher is first introduced into WebsocketClientThread (MyThread8_3);
